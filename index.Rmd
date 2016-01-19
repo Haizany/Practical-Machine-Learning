@@ -1,0 +1,133 @@
+---
+title: "Practical Machine Learning Project"
+author: "Haizany"
+date: "January 19, 2016"
+output: html_document
+---
+
+
+# Assignment Writeup 
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+The goal of this project is to predict the manner in which the p;articipants did the exercise. This is the "classe" variable in the training set. A model will be built based on the prediction made. 
+
+
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, data used is from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The following Libraries were used for this project:
+
+```{r}
+library(caret)
+library(e1071)
+library(randomForest)
+```
+
+# Data 
+
+The training data for the project is pml-training.csv (Ensure the right working directory).
+
+The test data for the project is pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har
+
+# Prediction of Training Data 
+
+Detecting and eliminating missing values.
+
+```{r}
+# setwd("C:/coursera/Practical-Machine-Learning")
+
+# Load the training data 
+trainingAll <- read.csv("pml-training.csv",na.strings=c("NA",""))  # 19622 obs. 160 var.
+
+# Discard columns with NAs
+NAs <- apply(trainingAll, 2, function(x) { sum(is.na(x)) })
+trainingValid <- trainingAll[, which(NAs == 0)]   # 19622 obs. 60 var.
+```
+Result is 60 variables (columns).
+
+Create a subset from training data (19622 rows).
+
+20% of the whole HAR data set was taken out as a representative sample. 
+
+The columns related to timestamps, X column, new_window and user_name  were removed. 
+
+```{r}
+# To create a subset of trainingValid data set
+trainIndex <- createDataPartition(y = trainingValid$classe, p=0.2,list=FALSE)
+trainData <- trainingValid[trainIndex,]
+
+# Remove Index
+removeIndex <- grep("timestamp|X|user_name|new_window", names(trainData))
+trainData <- trainData[, -removeIndex]     # 3927 obs. 54 var.
+
+```
+
+The data model design using cross validation and 4-fold cross validation. 
+After setting the trainControl, the Random Forests (rf) algorithm is used as below: 
+
+```{r}
+# Configure the train control for cross-validation
+tctrl = trainControl(method = "cv", number = 4)
+
+# Fit the model using Random Forests algorithm
+modFit <- train(trainData$classe ~.,
+                data = trainData,
+                method="rf",
+                trControl = tctrl,
+                prox = TRUE,
+                allowParallel = TRUE)
+```
+Use Rffit to produce a good model performance and low out of sample error rate:
+
+```{r}
+print(modFit)
+
+```
+# Prediction of Test Data
+
+The model is used for predictions on test data. 
+The same steps are repeated. 
+
+```{r}
+print(modFit$finalModel)
+
+```
+
+
+```{r}
+# setwd("C:/coursera/Practical-Machine-Learning")
+
+# Load test data
+testAll = read.csv("pml-testing.csv",na.strings=c("NA",""))
+
+# Use the columns of testingAll that are also in trainData
+test1 <- testAll[ , which(names(testAll) %in% names(trainData))]
+
+# Run the prediction
+predictionsTD <- predict(modFit, newdata = test1)
+
+
+# Function to generate files with predictions to submit for assignment quiz
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictionsTD)
+
+```
+
+
+# Conclusion
+
+
+This model has performed accurate predictions, based on the 20 cases.
+
+
